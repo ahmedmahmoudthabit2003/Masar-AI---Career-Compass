@@ -46,7 +46,7 @@ const MarketInsightDashboard: React.FC<{ insights: CareerSuggestion['marketInsig
         </div>
         <div className="text-right">
            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة الطلب</p>
-           <span className="text-xs font-bold text-slate-700 dark:text-white">{demandLabels[insights.demandRate]}</span>
+           <span className="text-xs font-bold text-slate-700 dark:white">{demandLabels[insights.demandRate]}</span>
         </div>
       </div>
 

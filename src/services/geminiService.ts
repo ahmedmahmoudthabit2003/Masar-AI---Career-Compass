@@ -3,16 +3,18 @@ import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { 
   SelfAwarenessData, 
   MarketData, 
-  MarketAnalysisResult, 
-  ResumeAnalysisResult, 
   JobListing, 
   CareerSuggestion,
-  GeneratedPlanData,
-  LinkedInImportedData,
   PersonalizedRoadmap,
-  JobMarketInsights,
+  SkillGapResponse,
+  ResumeAnalysisResult,
   InterviewQuestion,
-  InterviewFeedback
+  InterviewFeedback,
+  GeneratedPlanData,
+  MarketAnalysisResult,
+  LinkedInImportedData,
+  AdaptiveProfile,
+  PerformanceInsight
 } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -39,38 +41,85 @@ export interface QuizQuestion {
   explanation: string;
 }
 
-const repairJson = (jsonString: string): string => {
-  try {
-    return JSON.parse(jsonString) && jsonString;
-  } catch (e) {
-    let repaired = jsonString.trim();
-    if (repaired.startsWith("```json")) repaired = repaired.replace(/^```json/, "");
-    if (repaired.startsWith("```")) repaired = repaired.replace(/^```/, "");
-    const stack: string[] = [];
-    let inString = false;
-    for (let i = 0; i < repaired.length; i++) {
-        const char = repaired[i];
-        if (char === '"' && (i === 0 || repaired[i-1] !== '\\')) inString = !inString;
-        if (!inString) {
-            if (char === '{' || char === '[') stack.push(char === '{' ? '}' : ']');
-            if (char === '}' || char === ']') stack.pop();
-        }
+/**
+ * ADAPTIVE AI: Comprehensive behavioral and performance history analysis
+ */
+export const getAdaptivePerformanceAnalysis = async (profile: AdaptiveProfile, currentGoal: string): Promise<PerformanceInsight> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_PRO,
+    contents: `Analyze this user's behavioral and activity history for the target career goal: "${currentGoal}".
+    
+    Current Skill Level: ${profile.currentSkillLevel}
+    Total Activities: ${profile.activities?.length || 0}
+    Recent Activity History (Log): ${JSON.stringify(profile.activities?.slice(-10) || [])}
+    
+    1. Determine the performance trend (improving/stable/declining).
+    2. Provide a motivating message in Arabic summarizing their progress.
+    3. Predict an overall 'Market Success Rate' (0-100).
+    4. Recommend if they should move to the next skill tier (beginner -> intermediate -> advanced).
+    5. Identify a specific 'Focus Area' for next week.
+    
+    Output JSON in Arabic.`,
+    config: {
+      thinkingConfig: { thinkingBudget: 16000 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          trend: { type: Type.STRING, enum: ['improving', 'stable', 'declining'] },
+          message: { type: Type.STRING },
+          suggestedLevelAdjustment: { type: Type.STRING, enum: ['beginner', 'intermediate', 'advanced'] },
+          predictedSuccessRate: { type: Type.NUMBER },
+          strengthsSummary: { type: Type.STRING },
+          focusArea: { type: Type.STRING }
+        },
+        required: ["trend", "message", "predictedSuccessRate", "focusArea"]
+      }
     }
-    while (stack.length > 0) repaired += stack.pop();
-    return repaired;
-  }
+  });
+  return JSON.parse(response.text || '{}');
 };
 
-/**
- * FEATURE: Generate Targeted Interview Questions
- */
-export const generateInterviewQuestions = async (jobTitle: string, profile: SelfAwarenessData): Promise<InterviewQuestion[]> => {
+export const calculateJobMatchScore = async (userProfile: SelfAwarenessData, job: JobListing): Promise<SkillGapResponse & { successProbability: number }> => {
   const response = await ai.models.generateContent({
     model: MODEL_FLASH,
-    contents: `Act as a Top-tier HR Manager. Generate 5 unique and challenging interview questions for the role of "${jobTitle}".
-    Take this candidate profile into account: ${JSON.stringify(profile)}.
-    Include a mix of Behavioral, Technical, and Situational questions. 
-    Language: Arabic. Return JSON array matching schema.`,
+    contents: `Detailed match score between user and job listing. 
+    User Profile: ${JSON.stringify(userProfile)}
+    Job: ${job.title} - ${job.description}
+    
+    In addition to matching, predict the "Probability of Landing an Offer" based on the match score and market trends.
+    Output JSON Arabic.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          score: { type: Type.NUMBER },
+          skillsMatch: { type: Type.NUMBER },
+          experienceMatch: { type: Type.NUMBER },
+          educationMatch: { type: Type.NUMBER },
+          successProbability: { type: Type.NUMBER },
+          reason: { type: Type.STRING },
+          matchedSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
+          missingSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
+          quickPlan: { type: Type.STRING }
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+export const searchJobsSmart = async (userQuery: string, location: string = 'Saudi Arabia'): Promise<{ text: string, jobs: JobListing[] }> => {
+  const searchResponse = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Find jobs for "${userQuery}" in "${location}". Use Arabic for response summary.`,
+    config: { tools: [{ googleSearch: {} }] }
+  });
+  
+  const formattingResponse = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Format this search result into a JSON array of JobListing objects: ${searchResponse.text}. Ensure the output is valid JSON.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -79,35 +128,122 @@ export const generateInterviewQuestions = async (jobTitle: string, profile: Self
           type: Type.OBJECT,
           properties: {
             id: { type: Type.STRING },
-            question: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['behavioral', 'technical', 'situational'] }
+            title: { type: Type.STRING },
+            company: { type: Type.OBJECT, properties: { display_name: { type: Type.STRING } } },
+            location: { type: Type.OBJECT, properties: { display_name: { type: Type.STRING } } },
+            description: { type: Type.STRING },
+            redirect_url: { type: Type.STRING }
           }
         }
       }
     }
   });
-  return JSON.parse(repairJson(response.text || "[]"));
+  return { text: "نتائج البحث الحالية:", jobs: JSON.parse(formattingResponse.text || "[]") };
 };
 
-/**
- * FEATURE: Evaluate Interview Answer with Scores
- */
-export const evaluateInterviewAnswer = async (question: string, answer: string, jobTitle: string): Promise<InterviewFeedback> => {
+export const getCareerSuggestions = async (user: SelfAwarenessData, adaptiveProfile?: AdaptiveProfile): Promise<CareerSuggestion[]> => {
   const response = await ai.models.generateContent({
     model: MODEL_PRO,
-    contents: `Question: "${question}"
-    Candidate Answer: "${answer}"
-    Target Role: "${jobTitle}"
+    contents: `Suggest 4 high-potential career paths for ${user.currentRole}. 
+    User profile: ${JSON.stringify(user)}. 
+    Behavioral trends/Skills Level: ${adaptiveProfile?.currentSkillLevel || 'beginner'}.
+    Past Performance: ${JSON.stringify(adaptiveProfile?.performanceInsight || 'none')}.
     
-    Analyze the answer for:
-    1. Clarity (Clear structure, STAR method).
-    2. Keywords (Relevant technical and professional terms).
-    3. Confidence (Assertive language, tone).
-    
-    Provide scores out of 100, feedback text, and 3 suggestions.
-    Language: Arabic. Return JSON.`,
+    Adjust recommendations: If performance is high, suggest more ambitious 'Advanced' roles. If rushing, suggest more linear paths. 
+    JSON Arabic.`,
     config: {
-      thinkingConfig: { thinkingBudget: 4000 },
+      thinkingConfig: { thinkingBudget: 16000 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING },
+            matchPercentage: { type: Type.NUMBER },
+            reason: { type: Type.STRING },
+            difficulty: { type: Type.STRING },
+            trending: { type: Type.BOOLEAN },
+            marketInsights: {
+              type: Type.OBJECT,
+              properties: {
+                averageSalary: { type: Type.STRING },
+                demandRate: { type: Type.STRING },
+                growthTrend: { type: Type.STRING }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text || '[]');
+};
+
+export const analyzeResumeNarrative = async (fileBase64: string, targetJob: string): Promise<ResumeAnalysisResult> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_PRO,
+    contents: [
+      { inlineData: { mimeType: "application/pdf", data: fileBase64 } },
+      { text: `Analyze resume impact and ATS compatibility for "${targetJob}". JSON Arabic.` }
+    ],
+    config: {
+      thinkingConfig: { thinkingBudget: 16000 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          matchScore: { type: Type.NUMBER },
+          impactScore: { type: Type.NUMBER },
+          summary: { type: Type.STRING },
+          strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+          weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+          missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+          improvementTips: { type: Type.ARRAY, items: { type: Type.STRING } },
+          narrativeRedesign: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                original: { type: Type.STRING },
+                suggested: { type: Type.STRING },
+                logic: { type: Type.STRING }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+export const generateInterviewQuestions = async (jobTitle: string, userLevel: string = 'beginner'): Promise<InterviewQuestion[]> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Generate 5 interview questions for "${jobTitle}" at ${userLevel} level. JSON Arabic.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            question: { type: Type.STRING }
+          }
+        }
+      }
+    }
+  });
+  return JSON.parse(response.text || '[]');
+};
+
+export const evaluateInterviewAnswer = async (question: string, answer: string, jobTitle: string): Promise<InterviewFeedback> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Evaluate interview answer. Question: ${question}. Answer: ${answer}. Job: ${jobTitle}. JSON Arabic.`,
+    config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -122,49 +258,120 @@ export const evaluateInterviewAnswer = async (question: string, answer: string, 
       }
     }
   });
-  return JSON.parse(repairJson(response.text || "{}"));
+  return JSON.parse(response.text || '{}');
 };
 
-/**
- * FEATURE: Real-time Job Market Data Enrichment
- */
-export const getJobMarketInsights = async (jobTitle: string, location: string): Promise<JobMarketInsights> => {
-  const searchResponse = await ai.models.generateContent({
+export const generateQuiz = async (topic: string, level: string = 'Intermediate'): Promise<QuizQuestion[]> => {
+  const response = await ai.models.generateContent({
     model: MODEL_FLASH,
-    contents: `Search current job market for "${jobTitle}" in "${location}" (2025). Extract: average salary, demand rate, growth trend.`,
-    config: { tools: [{ googleSearch: {} }] }
-  });
-
-  const formatting = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Format to JSON in Arabic. Text: ${searchResponse.text}`,
+    contents: `Generate a 3-question technical quiz on ${topic} at ${level} level. JSON Arabic.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          averageSalary: { type: Type.STRING },
-          demandRate: { type: Type.STRING, enum: ['Very High', 'High', 'Medium', 'Low'] },
-          growthTrend: { type: Type.STRING }
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            question: { type: Type.STRING },
+            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+            correct: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+          }
         }
       }
     }
   });
-  return JSON.parse(repairJson(formatting.text || "{}"));
+  return JSON.parse(response.text || '[]');
 };
 
-/**
- * FEATURE: Bridge the Gap - Personalized Learning Roadmap
- */
-export const generateJobRoadmap = async (job: JobListing | string, userSkills: string): Promise<PersonalizedRoadmap> => {
-  const jobTitle = typeof job === 'string' ? job : job.title;
+export const generateCareerPlan = async (user: SelfAwarenessData, market: MarketData, marketAnalysis: any): Promise<GeneratedPlanData> => {
   const response = await ai.models.generateContent({
     model: MODEL_PRO,
-    contents: `Analyze gap between user skills: "${userSkills}" and job: "${jobTitle}". 
-    Create a concrete learning roadmap to bridge this gap. Include courses, projects and certifications with estimated time.
-    Return JSON.`,
+    contents: `Create a detailed career plan for ${user.name || 'user'} targeting ${market.field}. JSON Arabic.`,
     config: {
-      thinkingConfig: { thinkingBudget: 8000 },
+      thinkingConfig: { thinkingBudget: 32768 },
+      responseMimeType: "application/json"
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+export const getProbingQuestion = async (history: any[]): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: history.length === 0 ? "ابدأ التقييم الوظيفي السلوكي." : history,
+    config: { systemInstruction: "You are a senior career psychologist probing behavioral latent skills via crisis scenarios. Arabic." }
+  });
+  return response.text || "";
+};
+
+export const analyzeMarketStrategic = async (field: string, location: string, companies?: string, industry?: string): Promise<MarketAnalysisResult> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Conduct a real-time market analysis for "${field}" in "${location}". Focus on ${companies || 'top firms'} and ${industry || 'relevant industry'}. JSON Arabic.`,
+    config: {
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+export const generateLinkedInContent = async (type: 'bio' | 'post', details: string): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_PRO,
+    contents: `Generate LinkedIn ${type} based on: ${details}. Professional Tone. Arabic.`,
+    config: { thinkingConfig: { thinkingBudget: 8000 } }
+  });
+  return response.text || "";
+};
+
+export const generateConnectionRequest = async (persona: string, details: string): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Write a short, high-impact LinkedIn connection request to ${persona}: ${details}. Arabic.`,
+  });
+  return response.text || "";
+};
+
+export const optimizeCVContent = async (profile: LinkedInImportedData, targetRole: string): Promise<ResumeAnalysisResult> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_PRO,
+    contents: `Optimize CV bullet points for "${targetRole}" based on this profile: ${JSON.stringify(profile)}. JSON Arabic.`,
+    config: {
+      thinkingConfig: { thinkingBudget: 16000 },
+      responseMimeType: "application/json"
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+export const getJobDetails = async (jobTitle: string): Promise<JobDetailsResponse> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_FLASH,
+    contents: `Detailed career information for: ${jobTitle} in Saudi Arabia. JSON Arabic.`,
+    config: {
+      tools: [{ googleSearch: {} }],
+      responseMimeType: "application/json"
+    }
+  });
+  return JSON.parse(response.text || '{}');
+};
+
+// Added generateJobRoadmap to bridge skill gaps for a specific job listing
+export const generateJobRoadmap = async (job: JobListing, userSkills: string): Promise<PersonalizedRoadmap> => {
+  const response = await ai.models.generateContent({
+    model: MODEL_PRO,
+    contents: `Create a highly specific learning roadmap for the role of "${job.title}" at "${job.company.display_name}".
+    
+    The user's current skills are: ${userSkills}.
+    Job Description: ${job.description}
+    
+    1. Identify the core skill gaps.
+    2. Suggest concrete learning steps (courses, projects, certifications).
+    3. Output the result in Arabic as JSON matching the PersonalizedRoadmap interface.`,
+    config: {
+      thinkingConfig: { thinkingBudget: 16000 },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -179,193 +386,18 @@ export const generateJobRoadmap = async (job: JobListing | string, userSkills: s
               type: Type.OBJECT,
               properties: {
                 title: { type: Type.STRING },
-                type: { type: Type.STRING, enum: ['course', 'project', 'certification'] },
+                type: { type: Type.STRING },
                 provider: { type: Type.STRING },
                 duration: { type: Type.STRING },
-                priority: { type: Type.STRING, enum: ['High', 'Medium', 'Low'] }
-              }
+                priority: { type: Type.STRING }
+              },
+              required: ["title", "type", "provider", "duration", "priority"]
             }
           }
-        }
+        },
+        required: ["jobTitle", "requiredSkills", "userSkills", "skillGap", "steps"]
       }
     }
   });
-  return JSON.parse(repairJson(response.text || "{}"));
-};
-
-export const getCareerSuggestions = async (user: SelfAwarenessData): Promise<CareerSuggestion[]> => {
-  const initialResponse = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `Suggest 4 high-match career paths for: ${JSON.stringify(user)}. Return JSON.`,
-    config: {
-      thinkingConfig: { thinkingBudget: 8000 },
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            title: { type: Type.STRING },
-            matchPercentage: { type: Type.INTEGER },
-            reason: { type: Type.STRING },
-            difficulty: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
-            trending: { type: Type.BOOLEAN }
-          }
-        }
-      }
-    }
-  });
-
-  const suggestions: CareerSuggestion[] = JSON.parse(repairJson(initialResponse.text || "[]"));
-  return Promise.all(suggestions.map(async (s) => {
-    try {
-      const insights = await getJobMarketInsights(s.title, user.location || 'Saudi Arabia');
-      return { ...s, marketInsights: insights };
-    } catch (e) { return s; }
-  }));
-};
-
-export const optimizeCVContent = async (profile: LinkedInImportedData, targetRole: string): Promise<ResumeAnalysisResult> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `Optimize CV impact logic for "${targetRole}". Return JSON.`,
-    config: {
-      thinkingConfig: { thinkingBudget: 16000 },
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          matchScore: { type: Type.NUMBER },
-          impactScore: { type: Type.NUMBER },
-          summary: { type: Type.STRING },
-          missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-          improvementTips: { type: Type.ARRAY, items: { type: Type.STRING } },
-          narrativeRedesign: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { original: {type:Type.STRING}, suggested: {type:Type.STRING}, logic: {type:Type.STRING} } } }
-        }
-      }
-    }
-  });
-  return JSON.parse(repairJson(response.text || "{}"));
-};
-
-export const analyzeMarketStrategic = async (field: string, location: string, companies?: string, industry?: string): Promise<MarketAnalysisResult> => {
-  const searchResponse = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Analyze market for "${field}" in "${location}". Focus on AI risk, stability, and salary.`,
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  const formatting = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Format to JSON in Arabic. Text: ${searchResponse.text}`,
-    config: { responseMimeType: "application/json" }
-  });
-  return { ...JSON.parse(repairJson(formatting.text || "{}")), sources: [] };
-};
-
-export const getJobDetails = async (jobTitle: string): Promise<JobDetailsResponse> => {
-  const searchResponse = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Provide full job details for "${jobTitle}" in Saudi Arabia.`,
-    config: { tools: [{ googleSearch: {} }] }
-  });
-  const formatting = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Format to JSON in Arabic. Text: ${searchResponse.text}`,
-    config: { responseMimeType: "application/json" }
-  });
-  return JSON.parse(repairJson(formatting.text || "{}"));
-};
-
-export const generateCareerPlan = async (user: SelfAwarenessData, market: MarketData, marketAnalysis: MarketAnalysisResult): Promise<GeneratedPlanData> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `Create execution career plan for ${user.name}. Return JSON.`,
-    config: { thinkingConfig: { thinkingBudget: 32768 }, responseMimeType: "application/json" }
-  });
-  return JSON.parse(repairJson(response.text || "{}"));
-};
-
-export const getProbingQuestion = async (history: any[]): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: history.length === 0 ? "Start conversational career probing. Arabic." : history,
-    config: { systemInstruction: "Expert career psychologist. Use scenario-based probing." }
-  });
-  return response.text || "";
-};
-
-export const analyzeResumeNarrative = async (fileBase64: string, targetJob: string): Promise<ResumeAnalysisResult> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: [{ inlineData: { mimeType: "application/pdf", data: fileBase64 } }, { text: `Analyze impact logic for ${targetJob}.` }],
-    config: { thinkingConfig: { thinkingBudget: 16000 }, responseMimeType: "application/json" }
-  });
-  return JSON.parse(repairJson(response.text || "{}"));
-};
-
-export const generateConnectionRequest = async (targetRole: string, reason: string): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `LinkedIn connection for ${targetRole} based on ${reason}. Arabic.`
-  });
-  return response.text || "";
-};
-
-export const generateLinkedInContent = async (type: 'bio' | 'post', details: string, tone: string = 'Professional'): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `Generate LinkedIn ${type} for: ${details}. Tone: ${tone}. Arabic.`
-  });
-  return response.text || "";
-};
-
-export const searchJobsSmart = async (userQuery: string): Promise<{ text: string, jobs?: JobListing[] }> => {
-  const adzunaTool: FunctionDeclaration = {
-    name: "search_adzuna_jobs",
-    description: "Search live jobs in Saudi Arabia.",
-    parameters: { type: Type.OBJECT, properties: { what: { type: Type.STRING }, where: { type: Type.STRING } }, required: ["what"] }
-  };
-  const chat = ai.chats.create({ model: MODEL_FLASH, config: { tools: [{ functionDeclarations: [adzunaTool] }] } });
-  const result = await chat.sendMessage({ message: userQuery });
-  const call = result.functionCalls?.[0];
-  if (call && call.name === "search_adzuna_jobs") {
-     const { what, where } = call.args as any;
-     const jobs = await fetchAdzunaJobs(what || '', where || 'sa');
-     return { text: "Results:", jobs };
-  }
-  return { text: result.text || "" };
-};
-
-const fetchAdzunaJobs = async (what: string, where: string): Promise<JobListing[]> => {
-  const APP_ID = process.env.VITE_ADZUNA_APP_ID;
-  const APP_KEY = process.env.VITE_ADZUNA_APP_KEY;
-  if (!APP_ID || !APP_KEY) return [];
-  try {
-     const response = await fetch(`https://api.adzuna.com/v1/api/jobs/sa/search/1?app_id=${APP_ID}&app_key=${APP_KEY}&results_per_page=10&what=${encodeURIComponent(what)}&where=${encodeURIComponent(where)}&content-type=application/json`);
-     const data = await response.json();
-     return data.results || [];
-  } catch (e) { return []; }
-};
-
-export const getInterviewQuestion = async (history: {role: string, text: string}[], jobTitle: string): Promise<string> => {
-  const chat = ai.chats.create({ model: MODEL_FLASH, config: { systemInstruction: `HR recruiter for ${jobTitle}. Arabic.` } });
-  const result = await chat.sendMessage({ message: history.length === 0 ? "Start." : history[history.length-1].text });
-  return result.text || "";
-};
-
-export const generateQuiz = async (topic: string, level: string): Promise<QuizQuestion[]> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_FLASH,
-    contents: `Generate 3-question quiz about ${topic}. JSON Arabic.`,
-    config: { responseMimeType: "application/json" }
-  });
-  return JSON.parse(repairJson(response.text || "[]"));
-};
-
-export const generateLearningRoadmap = async (role: string, level: string): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: MODEL_PRO,
-    contents: `Learning roadmap for ${role} at ${level} level. Arabic.`
-  });
-  return response.text || "";
+  return JSON.parse(response.text || '{}');
 };

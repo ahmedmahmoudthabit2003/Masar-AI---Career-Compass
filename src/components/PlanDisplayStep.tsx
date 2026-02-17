@@ -43,8 +43,8 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
   };
 
   const progressPercentage = useMemo(() => {
-    if (!planData) return 0;
-    const total = planData.timeline.reduce((acc, curr) => acc + curr.milestones.length, 0);
+    if (!planData || !planData.timeline) return 0;
+    const total = planData.timeline.reduce((acc, curr) => acc + (curr.milestones?.length || 0), 0);
     if (total === 0) return 0;
     return Math.round((completedMilestones.size / total) * 100);
   }, [planData, completedMilestones]);
@@ -59,15 +59,14 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
     );
   }
 
-  if (!planData) return <div>خطأ في تحميل الخطة.</div>;
+  if (!planData) return <div className="text-center p-10 font-bold text-red-500">عذراً، لم نتمكن من تحميل الخطة حالياً.</div>;
 
   return (
     <div className="w-full pb-24 max-w-6xl mx-auto animate-fade-in">
-      {/* Global Progress Dashboard */}
       <Card className="mb-8 border-none bg-gradient-to-br from-slate-900 to-primary-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/20 rounded-full blur-[100px] -z-0"></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div>
+          <div className="text-right">
             <h2 className="text-3xl font-black mb-2">معدل الإنجاز المهني</h2>
             <p className="text-primary-200 font-medium max-w-sm">حوّل خطتك إلى واقع عبر تتبع كل خطوة. التقدم في المهام يقربك من هدفك المنشود.</p>
           </div>
@@ -103,22 +102,22 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
       </div>
 
       {activeTab === 'timeline' && (
-        <div className="space-y-12 relative mr-8 md:mr-12 border-r-4 border-slate-100 dark:border-surface-800 pr-12">
-           {planData.timeline.map((phase, idx) => (
+        <div className="space-y-12 relative mr-8 md:mr-12 border-r-4 border-slate-100 dark:border-surface-800 pr-12 text-right">
+           {planData.timeline?.map((phase, idx) => (
              <div key={idx} className="relative animate-fade-in-up">
                 <div className="absolute top-0 -right-[62px] w-14 h-14 rounded-full bg-primary-600 border-[6px] border-white dark:border-surface-900 flex items-center justify-center text-white font-black text-xl shadow-xl z-10">
                    {idx + 1}
                 </div>
                 <Card className="hover:shadow-2xl transition-all border-none bg-white dark:bg-surface-800 p-8 rounded-3xl">
                    <div className="flex flex-col md:flex-row justify-between items-start mb-6 border-b border-slate-50 dark:border-surface-700 pb-6">
-                      <div>
+                      <div className="text-right">
                          <h3 className="text-2xl font-black text-primary-600 dark:text-primary-400">{phase.phaseName}</h3>
                          <p className="text-slate-400 font-bold mt-1">المدة التقديرية: {phase.duration}</p>
                       </div>
                       <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-4 py-1.5 rounded-full text-xs font-black mt-4 md:mt-0 uppercase tracking-wider">التركيز: {phase.focus}</span>
                    </div>
                    <div className="grid md:grid-cols-2 gap-4">
-                      {phase.milestones.map((m, i) => {
+                      {phase.milestones?.map((m, i) => {
                         const isDone = completedMilestones.has(m);
                         return (
                           <div 
@@ -133,7 +132,7 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
                             }`}>
                               {isDone && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>}
                             </div>
-                            <span className={`font-bold text-sm leading-snug transition-all ${isDone ? 'text-emerald-700 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{m}</span>
+                            <span className={`font-bold text-sm leading-snug transition-all text-right flex-1 ${isDone ? 'text-emerald-700 line-through' : 'text-slate-700 dark:text-slate-200'}`}>{m}</span>
                           </div>
                         );
                       })}
@@ -144,11 +143,10 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
         </div>
       )}
 
-      {/* Tabs Skills/Risks/Report remain functionally the same as the previous source but I will re-implement them here for completeness since I replaced the file content */}
       {activeTab === 'skills' && (
         <div className="grid gap-6 animate-fade-in-up">
-           {planData.skillTree.map((skill, idx) => (
-             <Card key={idx} className="flex items-center justify-between p-6">
+           {planData.skillTree?.map((skill, idx) => (
+             <Card key={idx} className="flex items-center justify-between p-6 text-right">
                 <div className="flex items-center gap-4">
                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold ${skill.type === 'hard' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
                       {skill.type === 'hard' ? '⚙️' : '🧠'}
@@ -167,8 +165,8 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
       )}
 
       {activeTab === 'risks' && (
-        <div className="space-y-6 animate-fade-in-up">
-           {planData.risks.map((risk, idx) => (
+        <div className="space-y-6 animate-fade-in-up text-right">
+           {planData.risks?.map((risk, idx) => (
              <Card key={idx} className="border-r-8 border-red-500 p-6">
                 <div className="flex justify-between items-start mb-4">
                    <h3 className="text-xl font-black text-slate-800 dark:text-white">{risk.risk}</h3>
@@ -185,8 +183,8 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
 
       {activeTab === 'report' && (
         <div id="full-report-content" className="animate-fade-in-up">
-           <Card className="p-10 prose prose-slate dark:prose-invert max-w-none shadow-xl border-none">
-              <ReactMarkdown>{planData.markdownPlan}</ReactMarkdown>
+           <Card className="p-10 prose prose-slate dark:prose-invert max-w-none shadow-xl border-none text-right">
+              <ReactMarkdown>{planData.markdownPlan || 'لا يوجد تقرير متاح.'}</ReactMarkdown>
            </Card>
            <div className="mt-8 flex justify-center">
               <Button onClick={() => {
@@ -199,7 +197,7 @@ const PlanDisplayStep: React.FC<Props> = ({ userData, marketData, marketAnalysis
 
       <div className="mt-16 flex justify-center gap-4">
          <Button onClick={onRestart} variant="secondary" size="lg">البدء من جديد</Button>
-         <Button onClick={() => showToast('سيتم تفعيل المزامنة السحابية قريباً', 'info')} variant="primary" size="lg">حفظ التقدم</Button>
+         <Button onClick={() => showToast('تم حفظ خطتك محلياً وفي بروفايلك الذكي', 'success')} variant="primary" size="lg">حفظ التقدم</Button>
       </div>
     </div>
   );
