@@ -1,40 +1,63 @@
 
+export enum Step {
+  WELCOME = 0,
+  CONVERSATIONAL_ASSESSMENT = 1,
+  // Added alias for conversational assessment step
+  SELF_AWARENESS = 1,
+  SUGGESTIONS = 2, 
+  MARKET_RESEARCH = 3,
+  PLANNING = 4,
+  RESULT = 5
+}
+
+export interface Activity {
+  id: string;
+  type: 'interview' | 'learning' | 'job_match' | 'quiz' | 'resume_scan';
+  score: number;
+  timestamp: string;
+  metadata?: any;
+}
+
+export interface AdaptiveProfile {
+  techScore: number;
+  isRushing: boolean;
+  interactionCount: number;
+  currentSkillLevel: 'beginner' | 'intermediate' | 'advanced';
+  performanceInsight?: {
+    trend: 'improving' | 'stable' | 'declining';
+    predictedSuccessRate: number;
+    message: string;
+    focusArea: string;
+    suggestedLevelAdjustment: string;
+  };
+}
+
 export interface SelfAwarenessData {
-  // 1. Demographics & Basic Info
   name?: string;
-  ageGroup: string;
-  gender: string;
-  location: string;
-  
-  // 2. Education & Professional Status
-  educationLevel: string;
-  major: string;
-  currentRole: string; // Job title or "Student"
-  experienceYears: string;
-  
-  // 3. Skills & Competencies
-  skills: string; // Soft & Hard skills combined or separated text
-  languages: string;
-  
-  // 4. Values & Personality
-  workValues: string[]; // Array of selected values (e.g., Work-Life Balance)
-  workEnvironment: string;
-  personalityType: string; // e.g., Analytical, Creative, Leader
+  skills: string;
   interests: string;
-  
-  // 5. Goals & Constraints
-  financialGoal: string;
-  timeline: string;
-  constraints: string; // Geographic, Financial, Time
-  
-  // Legacy fields
-  strengths: string;
-  weaknesses: string;
-  riskTolerance: string;
-  autonomyLevel: string;
-  communicationStyle: string;
-  problemSolvingApproach: string;
   careerAspirations: string;
+  experienceYears?: string;
+  educationLevel?: string;
+  currentRole?: string;
+  major?: string;
+  location?: string;
+  ageGroup?: string;
+  workValues?: string[];
+  financialGoal?: string;
+  // Added missing properties
+  gender?: string;
+  languages?: string;
+  workEnvironment?: string;
+  personalityType?: string;
+  timeline?: string;
+  constraints?: string;
+  strengths?: string;
+  weaknesses?: string;
+  riskTolerance?: string;
+  autonomyLevel?: string;
+  communicationStyle?: string;
+  problemSolvingApproach?: string;
 }
 
 export interface MarketData {
@@ -42,47 +65,60 @@ export interface MarketData {
   location: string;
   targetCompanies?: string;
   industryFocus?: string;
+  // Added missing properties
   companySize?: string;
-  keywords?: string; 
-  specificSkills?: string; 
-}
-
-// --- VISUALIZATION TYPES ---
-
-export interface SalaryRange {
-  level: string; // e.g., "Junior", "Senior"
-  min: number;
-  max: number;
-  currency: string;
-}
-
-export interface GeoDistribution {
-  city: string;
-  percentage: number;
-}
-
-export interface DemandTrend {
-  year: string;
-  volume: number; // Normalized 0-100 score
+  keywords?: string;
+  specificSkills?: string;
 }
 
 export interface MarketAnalysisResult {
-  summary: string; // Executive summary
-  salaryData: SalaryRange[];
-  geoData: GeoDistribution[];
-  demandTrend: DemandTrend[];
+  summary: string;
+  salaryData: Array<{ level: string; min: number; max: number; currency: string }>;
+  geoData: Array<{ city: string; percentage: number }>;
   topSkills: string[];
-  competitionLevel: 'Low' | 'Medium' | 'High';
-  entryDifficulty: 'Easy' | 'Medium' | 'Hard';
-  growthRate: string; // e.g. "+15%"
-  sources: { title: string; url: string }[];
+  growthRate: string;
+  competitionLevel: string;
+  entryDifficulty?: string;
+  // Added sources for search grounding
+  sources?: Array<{ title: string; url: string }>;
 }
 
-export interface CareerPhase {
-  phaseName: string;
-  duration: string;
-  focus: string;
-  milestones: string[];
+export interface JobListing {
+  id: string;
+  title: string;
+  company: { display_name: string };
+  location: { display_name: string; lat?: number; lng?: number };
+  description: string;
+  redirect_url: string;
+  platform?: string;
+  salary_min?: number;
+  matchScore?: number;
+  matchReason?: string;
+  created: string;
+}
+
+export interface ResumeAnalysisResult {
+  matchScore: number;
+  impactScore?: number;
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  missingKeywords: string[];
+  improvementTips: string[];
+  narrativeRedesign?: Array<{ original: string; suggested: string; logic: string }>;
+}
+
+export interface CareerSuggestion {
+  title: string;
+  matchPercentage: number;
+  reason: string;
+  difficulty: 'High' | 'Medium' | 'Low';
+  trending: boolean;
+  marketInsights?: {
+    averageSalary: string;
+    demandRate: 'Very High' | 'High' | 'Medium' | 'Low';
+    growthTrend: string;
+  };
 }
 
 export interface SkillNode {
@@ -92,58 +128,28 @@ export interface SkillNode {
   level: 'beginner' | 'intermediate' | 'advanced';
 }
 
-export interface RiskFactor {
-  risk: string;
-  impact: 'High' | 'Medium' | 'Low';
-  mitigation: string;
-}
-
 export interface GeneratedPlanData {
   markdownPlan: string;
-  timeline: CareerPhase[];
-  skillTree: SkillNode[];
-  risks: RiskFactor[];
-  resources: { title: string; type: string; description: string }[];
-  actionPlan: { shortTerm: string[], mediumTerm: string[] };
-  networkingStrategy: { targetPeople: string; approachMethod: string; suggestedPlatforms: string[] };
-}
-
-export interface CareerSuggestion {
-  title: string;
-  matchPercentage: number;
-  reason: string;
-  difficulty: 'High' | 'Medium' | 'Low';
-  trending: boolean;
+  timeline: Array<{ phaseName: string; duration: string; focus: string; milestones: string[] }>;
+  skillTree: Array<SkillNode>;
+  risks: Array<{ risk: string; impact: string; mitigation: string }>;
+  actionPlan: { shortTerm: string[]; mediumTerm: string[] };
 }
 
 export interface AppState {
-  step: number;
+  step: Step;
   view: 'wizard' | 'resources';
   userData: SelfAwarenessData;
   marketData: MarketData;
   marketAnalysis: MarketAnalysisResult | null;
   generatedPlan: GeneratedPlanData | null;
-  suggestions?: CareerSuggestion[];
-}
-
-export enum Step {
-  WELCOME = 0,
-  SELF_AWARENESS = 1,
-  SUGGESTIONS = 2, 
-  MARKET_RESEARCH = 3,
-  PLANNING = 4,
-  RESULT = 5
-}
-
-// --- NEW FEATURES TYPES ---
-
-export interface ResumeAnalysisResult {
-  matchScore: number;
-  summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  missingKeywords: string[];
-  improvementTips: string[];
+  careerPoints: number;
+  activities: Activity[];
+  adaptiveProfile: AdaptiveProfile;
+  appliedJobs: JobListing[];
+  direction: 'forward' | 'backward';
+  isExiting: boolean;
+  isSettingsOpen: boolean;
 }
 
 export interface ChatMessage {
@@ -153,16 +159,7 @@ export interface ChatMessage {
   isThinking?: boolean;
 }
 
-export type LinkedInContentType = 'bio' | 'post' | 'connection_request';
-
-export interface JobListing {
-  id: string;
-  title: string;
-  company: { display_name: string };
-  location: { display_name: string };
-  description: string;
-  redirect_url: string;
-  created: string;
-  salary_min?: number;
-  salary_max?: number;
+export interface PersonalizedRoadmap {
+  skillGap: string[];
+  steps: Array<{ title: string; provider: string; duration: string; type: 'course' | 'project' | 'cert'; priority: 'High' | 'Medium' }>;
 }

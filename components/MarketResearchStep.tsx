@@ -68,7 +68,8 @@ const MarketResearchStep: React.FC<Props> = ({ initialData, initialAnalysis, onN
     }
     setLoading(true);
     try {
-      const data = await analyzeMarket(field, location, companies, undefined, industry);
+      // Fix: Error in file components/MarketResearchStep.tsx on line 71: Expected 2-4 arguments, but got 5.
+      const data = await analyzeMarket(field, location, companies, industry);
       setResult(data);
       showToast('تم جلب بيانات السوق الحية', 'success');
     } catch (err) {

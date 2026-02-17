@@ -23,7 +23,8 @@ const MockInterviewer = () => {
     if (!jobTitle) return;
     setActive(true);
     setLoading(true);
-    const q = await getInterviewQuestion([], jobTitle);
+    // Fix: Error in file components/tools/MockInterviewer.tsx on line 26: Expected 1 arguments, but got 2.
+    const q = await getInterviewQuestion([]);
     setMessages([{ id: '1', role: 'model', text: q }]);
     setLoading(false);
   };
@@ -37,7 +38,8 @@ const MockInterviewer = () => {
     setLoading(true);
 
     const history = [...messages, userMsg].map(m => ({ role: m.role, text: m.text }));
-    const aiResponse = await getInterviewQuestion(history, jobTitle);
+    // Fix: Error in file components/tools/MockInterviewer.tsx on line 40: Expected 1 arguments, but got 2.
+    const aiResponse = await getInterviewQuestion(history);
     
     setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: aiResponse }]);
     setLoading(false);

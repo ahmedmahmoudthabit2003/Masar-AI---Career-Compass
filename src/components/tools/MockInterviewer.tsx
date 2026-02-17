@@ -38,7 +38,8 @@ const MockInterviewer = () => {
     if (!jobTitle || !selectedPersona) return;
     setLoading(true);
     try {
-      const qs = await generateInterviewQuestions(jobTitle, {} as any);
+      // Fix: Correct generateInterviewQuestions call.
+      const qs = await generateInterviewQuestions(jobTitle);
       setQuestions(qs);
       setState('interview');
       setTimer(0);

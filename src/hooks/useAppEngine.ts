@@ -1,183 +1,93 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { AppState, SelfAwarenessData, MarketData, Step, Activity, AppliedJob, AdaptiveProfile, MarketAnalysisResult } from '../types';
-import { useToast } from '../contexts/ToastContext';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, Step, Activity, AdaptiveProfile } from '../types';
 import { GamificationService } from '../services/gamificationService';
-import { getAdaptivePerformanceAnalysis } from '../services/geminiService';
 
-const initialUserData: SelfAwarenessData = {
-  name: '', ageGroup: '', gender: '', location: '', educationLevel: '', major: '', currentRole: '',
-  experienceYears: '', skills: '', languages: '', workValues: [], workEnvironment: '',
-  personalityType: '', interests: '', financialGoal: '', timeline: '', constraints: '',
-  strengths: '', weaknesses: '', riskTolerance: 'medium', autonomyLevel: 'collaborative',
-  communicationStyle: '', problemSolvingApproach: '', careerAspirations: ''
-};
+const STORAGE_KEY = 'masar_master_v5_final';
 
-const initialMarketData: MarketData = {
-  field: '', location: '', targetCompanies: '', industryFocus: '', companySize: '', keywords: '', specificSkills: ''
-};
-
-const initialAdaptiveProfile: AdaptiveProfile = {
-  techScore: 0,
-  isRushing: false,
-  interactionCount: 0,
-  preferredTools: [],
+const initialState: AppState = {
+  step: Step.WELCOME,
+  view: 'wizard',
+  userData: { skills: '', interests: '', careerAspirations: '' },
+  marketData: { field: '', location: '' },
+  marketAnalysis: null,
+  generatedPlan: null,
+  careerPoints: 0,
   activities: [],
-  currentSkillLevel: 'beginner'
+  appliedJobs: [],
+  adaptiveProfile: { techScore: 0, isRushing: false, interactionCount: 0, currentSkillLevel: 'beginner' },
+  direction: 'forward',
+  isExiting: false,
+  isSettingsOpen: false
 };
-
-const STORAGE_KEY = 'masar_app_state_v5';
 
 export const useAppEngine = () => {
-  const [step, setStep] = useState<Step>(Step.WELCOME);
-  const [view, setView] = useState<'wizard' | 'resources'>('wizard');
-  const [userData, setUserData] = useState<SelfAwarenessData>(initialUserData);
-  const [marketData, setMarketData] = useState<MarketData>(initialMarketData);
-  const [marketAnalysis, setMarketAnalysis] = useState<any>(null);
-  const [generatedPlan, setGeneratedPlan] = useState<any>(null);
-  
-  const [careerPoints, setCareerPoints] = useState(0);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [appliedJobs, setAppliedJobs] = useState<AppliedJob[]>([]);
-  const [adaptiveProfile, setAdaptiveProfile] = useState<AdaptiveProfile>(initialAdaptiveProfile);
-  
-  const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
-  const [isExiting, setIsExiting] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { showToast } = useToast();
-
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed: AppState = JSON.parse(saved);
-        setUserData(parsed.userData || initialUserData);
-        setMarketData(parsed.marketData || initialMarketData);
-        setMarketAnalysis(parsed.marketAnalysis);
-        setGeneratedPlan(parsed.generatedPlan);
-        setCareerPoints(parsed.careerPoints || 0);
-        setActivities(parsed.activities || []);
-        setAppliedJobs(parsed.appliedJobs || []);
-        setAdaptiveProfile(parsed.adaptiveProfile || initialAdaptiveProfile);
-        if (parsed.step > Step.WELCOME) setStep(parsed.step);
-      } catch (e) { console.error("Restore state error", e); }
+  const [state, setState] = useState<AppState>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : initialState;
+    } catch {
+      return initialState;
     }
-  }, []);
+  });
 
+  // Fix: Error in file src/hooks/useAppEngine.ts on line 34: Cannot find namespace 'NodeJS'.
+  const saveTimeout = useRef<any>(null);
+
+  // الحفظ التلقائي مع Debounce لمنع ضغط القرص
   useEffect(() => {
-    const state: AppState = { 
-        step, view, userData, marketData, marketAnalysis, generatedPlan, 
-        careerPoints, activities, appliedJobs, 
-        adaptiveProfile
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [step, view, userData, marketData, marketAnalysis, generatedPlan, careerPoints, activities, appliedJobs, adaptiveProfile]);
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }, 1000);
+    return () => { if (saveTimeout.current) clearTimeout(saveTimeout.current); };
+  }, [state]);
 
-  const logActivity = useCallback(async (type: Activity['type'], score: number, metadata?: any) => {
-    const newActivity: Activity = {
-      id: Math.random().toString(36).substring(7),
-      type,
-      score,
-      timestamp: new Date().toISOString(),
-      metadata
-    };
-
-    const updatedActivities = [...activities, newActivity];
-    setActivities(updatedActivities);
-    
-    const basePoints = 25;
-    const bonus = Math.floor(score / 10);
-    setCareerPoints(prev => prev + basePoints + bonus);
-
-    // Trigger Adaptive AI analysis every 3 activities
-    if (updatedActivities.length % 3 === 0) {
-      try {
-        const insight = await getAdaptivePerformanceAnalysis(
-          { ...adaptiveProfile, activities: updatedActivities },
-          marketData.field || 'General Path'
-        );
-        setAdaptiveProfile(prev => ({
-          ...prev,
-          performanceInsight: insight,
-          currentSkillLevel: (insight.suggestedLevelAdjustment as any) || prev.currentSkillLevel
-        }));
-        showToast('تم تحديث بروفايلك الذكي بناءً على أدائك الأخير! ✨', 'success');
-      } catch (e) {
-        console.error("Adaptive analysis failed", e);
-      }
-    }
-  }, [activities, adaptiveProfile, marketData.field, showToast]);
-
-  const addPoints = useCallback((pts: number) => {
-    setCareerPoints(prev => prev + pts);
+  const logActivity = useCallback((type: Activity['type'], score: number) => {
+    setState(prev => ({
+      ...prev,
+      careerPoints: prev.careerPoints + 25,
+      activities: [...prev.activities, { id: Math.random().toString(36).substring(7), type, score, timestamp: new Date().toISOString() }]
+    }));
   }, []);
 
-  const updateAdaptive = useCallback((action: { type: 'msg' | 'upload' | 'import', text?: string, duration?: number }) => {
-    setAdaptiveProfile(prev => {
-        const updated = GamificationService.updateAdaptiveProfile(prev, action);
-        return { ...updated, activities: prev.activities };
-    });
-  }, []);
-
-  const transition = (newStep: Step, dir: 'forward' | 'backward') => {
-    setDirection(dir);
-    setIsExiting(true);
+  const nextStep = useCallback(() => {
+    if (state.isExiting) return;
+    setState(p => ({ ...p, direction: 'forward', isExiting: true }));
     setTimeout(() => {
-      setStep(newStep);
-      setIsExiting(false);
+      setState(p => ({ ...p, step: Math.min(Step.RESULT, p.step + 1), isExiting: false }));
     }, 400);
-  };
+  }, [state.isExiting]);
 
-  const nextStep = useCallback(() => transition(step + 1, 'forward'), [step]);
-  const prevStep = useCallback(() => transition(step - 1, 'backward'), [step]);
+  const prevStep = useCallback(() => {
+    if (state.isExiting) return;
+    setState(p => ({ ...p, direction: 'backward', isExiting: true }));
+    setTimeout(() => {
+      setState(p => ({ ...p, step: Math.max(Step.WELCOME, p.step - 1), isExiting: false }));
+    }, 400);
+  }, [state.isExiting]);
 
-  const handleSelfAwarenessSubmit = useCallback((data: SelfAwarenessData) => {
-    setUserData(data);
-    nextStep();
-  }, [nextStep]);
-
-  const handleSuggestionSelect = useCallback((title: string) => {
-    setMarketData(prev => ({ ...prev, field: title }));
-    nextStep();
-  }, [nextStep]);
-
-  const handleMarketSubmit = useCallback((data: MarketData, analysis: MarketAnalysisResult) => {
-    setMarketData(data);
-    setMarketAnalysis(analysis);
-    nextStep();
-  }, [nextStep]);
-
-  const handleLoadSavedLegacy = useCallback((data: any) => {
-    if (data.userData) setUserData(prev => ({...prev, ...data.userData}));
-    if (data.marketData) setMarketData(data.marketData);
-    if (data.marketAnalysis) setMarketAnalysis(data.marketAnalysis);
-    if (data.generatedPlan) setGeneratedPlan(data.generatedPlan);
-    if (data.careerPoints) setCareerPoints(data.careerPoints);
-    if (data.step) setStep(data.step);
+  const resetApp = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('masar_career_suggestions_cache');
+    window.location.reload();
   }, []);
 
   return {
-    state: { step, view, userData, marketData, marketAnalysis, generatedPlan, careerPoints, activities, appliedJobs, direction, isExiting, isSettingsOpen, adaptiveProfile },
-    actions: { 
-        setStep, setView, setUserData, setMarketData, setMarketAnalysis, setGeneratedPlan, 
-        setCareerPoints, setAppliedJobs, setIsSettingsOpen, logActivity, updateAdaptive, addPoints,
-        nextStep,
-        prevStep,
-        handleSelfAwarenessSubmit,
-        handleSuggestionSelect,
-        handleMarketSubmit,
-        handleLoadSavedLegacy,
-        handleRestart: () => { 
-          setStep(Step.WELCOME); 
-          setGeneratedPlan(null); 
-          setUserData(initialUserData);
-          setMarketData(initialMarketData);
-          setMarketAnalysis(null);
-          setAdaptiveProfile(initialAdaptiveProfile);
-          setActivities([]);
-          setAppliedJobs([]);
-          localStorage.removeItem(STORAGE_KEY);
-        }
+    state,
+    actions: {
+      setStep: (step: Step) => setState(p => ({ ...p, step })),
+      setView: (view: AppState['view']) => setState(p => ({ ...p, view })),
+      setUserData: (userData: any) => setState(p => ({ ...p, userData: { ...p.userData, ...userData } })),
+      setMarketData: (marketData: any) => setState(p => ({ ...p, marketData: { ...p.marketData, ...marketData } })),
+      setMarketAnalysis: (marketAnalysis: any) => setState(p => ({ ...p, marketAnalysis })),
+      setGeneratedPlan: (generatedPlan: any) => setState(p => ({ ...p, generatedPlan })),
+      setIsSettingsOpen: (isOpen: boolean) => setState(p => ({ ...p, isSettingsOpen: isOpen })),
+      updateAdaptive: (action: any) => setState(prev => ({ ...prev, adaptiveProfile: GamificationService.updateAdaptiveProfile(prev.adaptiveProfile, action) })),
+      logActivity,
+      nextStep,
+      prevStep,
+      resetApp
     }
   };
 };

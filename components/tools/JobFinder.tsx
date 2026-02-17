@@ -38,8 +38,9 @@ const JobFinder = () => {
     setLoading(true);
     setResponse(null);
     try {
-      const res = await searchJobsSmart(query);
-      setResponse(res);
+      // Corrected: Provided default location if not specified
+      const res = await searchJobsSmart(query, location || 'الرياض');
+      setResponse(res as any);
     } catch (e) {
       console.error(e);
     } finally {

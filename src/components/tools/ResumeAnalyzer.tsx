@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
@@ -59,24 +58,24 @@ const ResumeAnalyzer = () => {
               <Card className="bg-white dark:bg-surface-800 p-6 flex items-center justify-between">
                  <div>
                     <p className="text-xs font-black text-slate-400 uppercase">Impact Score</p>
-                    <h4 className="text-4xl font-black text-primary-600">{result.impactScore}%</h4>
+                    <h4 className="text-4xl font-black text-primary-600">{result.impactScore || 0}%</h4>
                  </div>
                  <div className="text-right">
                     <p className="text-xs font-bold text-slate-500">قوة الأرقام والنتائج</p>
                     <div className="w-32 h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                       <div className="h-full bg-primary-500" style={{width: `${result.impactScore}%`}}></div>
+                       <div className="h-full bg-primary-500" style={{width: `${result.impactScore || 0}%`}}></div>
                     </div>
                  </div>
               </Card>
               <Card className="bg-white dark:bg-surface-800 p-6 flex items-center justify-between">
                  <div>
                     <p className="text-xs font-black text-slate-400 uppercase">ATS Match</p>
-                    <h4 className="text-4xl font-black text-emerald-600">{result.matchScore}%</h4>
+                    <h4 className="text-4xl font-black text-emerald-600">{result.matchScore || 0}%</h4>
                  </div>
                  <div className="text-right">
                     <p className="text-xs font-bold text-slate-500">التوافق مع الأنظمة</p>
                     <div className="w-32 h-2 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                       <div className="h-full bg-emerald-500" style={{width: `${result.matchScore}%`}}></div>
+                       <div className="h-full bg-emerald-500" style={{width: `${result.matchScore || 0}%`}}></div>
                     </div>
                  </div>
               </Card>
@@ -84,7 +83,7 @@ const ResumeAnalyzer = () => {
 
            <Card title="إعادة صياغة 'منطق التأثير' (Impact Redesign)" className="border-none shadow-xl">
               <div className="space-y-6 mt-4">
-                 {result.narrativeRedesign.map((item, idx) => (
+                 {result.narrativeRedesign?.map((item, idx) => (
                    <div key={idx} className="grid md:grid-cols-2 gap-4 border-b border-slate-100 dark:border-surface-700 pb-6 last:border-none">
                       <div className="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-2xl border border-red-100 dark:border-red-900/30">
                          <p className="text-[10px] font-black text-red-600 mb-2">النص الحالي (ضعيف التنافسية)</p>

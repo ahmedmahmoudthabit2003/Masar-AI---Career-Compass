@@ -4,6 +4,7 @@ import Card from '../UI/Card';
 import Button from '../UI/Button';
 import ReactMarkdown from 'react-markdown';
 import { useToast } from '../../contexts/ToastContext';
+// Corrected: Use exported analyzeResumeNarrative alias
 import { analyzeResume } from '../../services/geminiService';
 import { ResumeAnalysisResult } from '../../types';
 

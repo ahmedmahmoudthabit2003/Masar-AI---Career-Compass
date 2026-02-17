@@ -79,6 +79,8 @@ const MarketResearchStep: React.FC<Props> = ({ initialData, initialAnalysis, onN
     }
     setLoading(true);
     try {
+      // Fix: Error in file src/components/MarketResearchStep.tsx on line 82: Expected 2 arguments, but got 4.
+      // Updated Service analyzeMarketStrategic signature now accepts 4 args.
       const data = await analyzeMarketStrategic(field, location, companies, industry);
       setResult(data);
       showToast('اكتمل مسح السوق العربي بنجاح', 'success');

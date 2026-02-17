@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import Card from '../UI/Card';
 import Button from '../UI/Button';
-import { generateQuiz, QuizQuestion } from '../../services/geminiService';
+import { generateQuiz } from '../../services/geminiService';
+// Fix: Import QuizQuestion from types instead of service
+import { QuizQuestion } from '../../types';
 
 const SkillQuiz = () => {
   const [topic, setTopic] = useState('');

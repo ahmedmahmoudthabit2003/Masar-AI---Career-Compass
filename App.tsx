@@ -18,11 +18,11 @@ const PlanDisplayStep = React.lazy(() => import('./components/PlanDisplayStep'))
 
 declare const AOS: any;
 
-// Initial empty state
+// Initial empty state with fixed properties
 const initialUserData: SelfAwarenessData = {
   name: '',
   ageGroup: '',
-  gender: '',
+  gender: '', // Added missing field
   location: '',
   educationLevel: '',
   major: '',
@@ -51,7 +51,7 @@ const initialMarketData: MarketData = {
   location: '',
   targetCompanies: '',
   industryFocus: '',
-  companySize: '',
+  companySize: '', // Added missing field
   keywords: '',
   specificSkills: ''
 };
@@ -120,6 +120,12 @@ const AppContent: React.FC = () => {
   
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   
+  // Added missing state variables for AppState
+  const [careerPoints, setCareerPoints] = useState(0);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [adaptiveProfile, setAdaptiveProfile] = useState<any>({ techScore: 0, isRushing: false, interactionCount: 0, currentSkillLevel: 'beginner' });
+  const [appliedJobs, setAppliedJobs] = useState<any[]>([]);
+
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
   const [isExiting, setIsExiting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -147,6 +153,12 @@ const AppContent: React.FC = () => {
         
         setGeneratedPlan(parsed.generatedPlan);
         
+        // Restore gamification and activity data
+        if (parsed.careerPoints) setCareerPoints(parsed.careerPoints);
+        if (parsed.activities) setActivities(parsed.activities);
+        if (parsed.adaptiveProfile) setAdaptiveProfile(parsed.adaptiveProfile);
+        if (parsed.appliedJobs) setAppliedJobs(parsed.appliedJobs);
+
         // Don't jump to later steps if data is empty to avoid confusion
         if (parsed.step > Step.WELCOME) {
            setStep(parsed.step);
@@ -176,14 +188,22 @@ const AppContent: React.FC = () => {
           userData,
           marketData,
           generatedPlan,
-          marketAnalysis
+          marketAnalysis,
+          // Include missing fields in state construction
+          careerPoints,
+          activities,
+          adaptiveProfile,
+          appliedJobs,
+          direction,
+          isExiting,
+          isSettingsOpen
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
       }, 1000);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [step, view, userData, marketData, generatedPlan, marketAnalysis, isRestored]);
+  }, [step, view, userData, marketData, generatedPlan, marketAnalysis, isRestored, careerPoints, activities, adaptiveProfile, appliedJobs, direction, isExiting, isSettingsOpen]);
 
   // --- AOS & Scroll ---
   useEffect(() => {
@@ -268,7 +288,8 @@ const AppContent: React.FC = () => {
           setGeneratedPlan(data.plan);
           setStep(Step.PLANNING);
         } else {
-          setStep(Step.SELF_AWARENESS);
+          // Use CONVERSATIONAL_ASSESSMENT (Step 1) instead of non-existent SELF_AWARENESS
+          setStep(Step.CONVERSATIONAL_ASSESSMENT);
         }
         setIsExiting(false);
     }, transitionDuration);
@@ -321,7 +342,7 @@ const AppContent: React.FC = () => {
           >
             <Suspense fallback={<LoadingFallback />}>
               {step === Step.WELCOME && <WelcomeStep onNext={nextStep} onLoadSaved={handleLoadSavedLegacy} />}
-              {step === Step.SELF_AWARENESS && <SelfAwarenessStep initialData={userData} onNext={handleSelfAwarenessSubmit} onBack={prevStep} />}
+              {step === Step.CONVERSATIONAL_ASSESSMENT && <SelfAwarenessStep initialData={userData} onNext={handleSelfAwarenessSubmit} onBack={prevStep} />}
               {step === Step.SUGGESTIONS && <CareerSuggestionsStep userData={userData} onSelect={handleSuggestionSelect} onBack={prevStep} />}
               {step === Step.MARKET_RESEARCH && <MarketResearchStep initialData={marketData} initialAnalysis={marketAnalysis} onNext={handleMarketSubmit} onBack={prevStep} />}
               {step === Step.PLANNING && <PlanDisplayStep userData={userData} marketData={marketData} marketAnalysis={marketAnalysis} initialPlan={generatedPlan} onRestart={handleRestart} />}

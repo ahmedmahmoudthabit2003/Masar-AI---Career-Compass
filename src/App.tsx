@@ -12,13 +12,11 @@ const CareerSuggestionsStep = React.lazy(() => import('./components/CareerSugges
 const MarketResearchStep = React.lazy(() => import('./components/MarketResearchStep'));
 const PlanDisplayStep = React.lazy(() => import('./components/PlanDisplayStep'));
 
-declare const AOS: any;
-
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[400px] w-full animate-fade-in">
     <div className="flex flex-col items-center gap-4">
       <div className="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
-      <p className="text-slate-500 font-medium animate-pulse text-lg">جاري التحميل...</p>
+      <p className="text-slate-500 font-medium animate-pulse text-lg font-bold">جاري التحميل...</p>
     </div>
   </div>
 );
@@ -30,12 +28,6 @@ const AppContent: React.FC = () => {
     generatedPlan, direction, isExiting, isSettingsOpen,
     careerPoints, adaptiveProfile 
   } = state;
-
-  useEffect(() => {
-    if (typeof AOS !== 'undefined') {
-      setTimeout(() => AOS.refresh(), 500);
-    }
-  }, [step, view]);
 
   const getStepAnimation = () => {
     if (isExiting) {
@@ -49,35 +41,53 @@ const AppContent: React.FC = () => {
       view={view}
       step={step}
       careerPoints={careerPoints}
-      isSettingsOpen={isSettingsOpen}
+      isSettingsOpen={!!isSettingsOpen}
       onCloseSettings={() => actions.setIsSettingsOpen(false)}
       onOpenSettings={() => actions.setIsSettingsOpen(true)}
       onViewChange={actions.setView}
     >
         {view === 'resources' ? (
           <div className={`w-full max-w-7xl ${isExiting ? 'animate-slide-out-left' : 'animate-slide-in-right'}`}>
-            <ResourcesSection adaptiveProfile={adaptiveProfile} />
+            <ResourcesSection />
           </div>
         ) : (
-          <div 
-            className={`w-full ${step === Step.PLANNING ? 'max-w-4xl lg:max-w-5xl' : 'max-w-4xl'} ${getStepAnimation()}`} 
-            key={step}
-          >
+          <div className={`w-full ${step === Step.PLANNING ? 'max-w-5xl' : 'max-w-4xl'} ${getStepAnimation()}`} key={step}>
             <Suspense fallback={<LoadingFallback />}>
-              {step === Step.WELCOME && <WelcomeStep onNext={actions.nextStep} onLoadSaved={actions.handleLoadSavedLegacy} />}
+              {step === Step.WELCOME && <WelcomeStep onNext={actions.nextStep} onLoadSaved={(data) => { /* منطق التحميل مدمج في Hook */ }} />}
               {step === Step.CONVERSATIONAL_ASSESSMENT && (
                 <SelfAwarenessStep 
                   initialData={userData} 
                   adaptiveProfile={adaptiveProfile}
-                  onNext={actions.handleSelfAwarenessSubmit} 
+                  onNext={(data) => { actions.setUserData(data); actions.nextStep(); }} 
                   onBack={actions.prevStep}
                   onUpdateAdaptive={actions.updateAdaptive}
-                  onAddPoints={actions.addPoints}
+                  onAddPoints={actions.logActivity}
                 />
               )}
-              {step === Step.SUGGESTIONS && <CareerSuggestionsStep userData={userData} onSelect={actions.handleSuggestionSelect} onBack={actions.prevStep} />}
-              {step === Step.MARKET_RESEARCH && <MarketResearchStep initialData={marketData} initialAnalysis={marketAnalysis} onNext={actions.handleMarketSubmit} onBack={actions.prevStep} />}
-              {step === Step.PLANNING && <PlanDisplayStep userData={userData} marketData={marketData} marketAnalysis={marketAnalysis} initialPlan={generatedPlan} onRestart={actions.handleRestart} />}
+              {step === Step.SUGGESTIONS && (
+                <CareerSuggestionsStep 
+                  userData={userData} 
+                  onSelect={(title) => { actions.setMarketData({ field: title }); actions.nextStep(); }} 
+                  onBack={actions.prevStep} 
+                />
+              )}
+              {step === Step.MARKET_RESEARCH && (
+                <MarketResearchStep 
+                  initialData={marketData} 
+                  initialAnalysis={marketAnalysis} 
+                  onNext={(data, analysis) => { actions.setMarketData(data); actions.setMarketAnalysis(analysis); actions.nextStep(); }} 
+                  onBack={actions.prevStep} 
+                />
+              )}
+              {step === Step.PLANNING && (
+                <PlanDisplayStep 
+                  userData={userData} 
+                  marketData={marketData} 
+                  marketAnalysis={marketAnalysis} 
+                  initialPlan={generatedPlan} 
+                  onRestart={actions.resetApp} 
+                />
+              )}
             </Suspense>
           </div>
         )}
