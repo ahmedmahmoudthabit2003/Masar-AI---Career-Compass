@@ -1,4 +1,12 @@
 
+export interface SavedSearch {
+  id: string;
+  role: string;
+  location: string;
+  skills: string;
+  timestamp: string;
+}
+
 export interface Activity {
   id: string;
   type: 'interview' | 'learning' | 'job_match' | 'quiz' | 'resume_scan';
@@ -42,7 +50,6 @@ export interface AdaptiveProfile {
   performanceInsight?: PerformanceInsight;
 }
 
-// Added ChatMessage interface
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -139,7 +146,6 @@ export interface InterviewQuestion {
   question: string;
 }
 
-// Added InterviewPersona interface
 export interface InterviewPersona {
   id: string;
   name: string;

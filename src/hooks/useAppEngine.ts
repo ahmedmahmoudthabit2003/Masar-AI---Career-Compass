@@ -22,7 +22,7 @@ const initialAdaptiveProfile: AdaptiveProfile = {
   isRushing: false,
   interactionCount: 0,
   preferredTools: [],
-  activities: [], // Ensure initialized as array
+  activities: [],
   currentSkillLevel: 'beginner'
 };
 
@@ -89,7 +89,7 @@ export const useAppEngine = () => {
     const bonus = Math.floor(score / 10);
     setCareerPoints(prev => prev + basePoints + bonus);
 
-    // Trigger Adaptive AI analysis every 3 activities to re-evaluate the profile
+    // Trigger Adaptive AI analysis every 3 activities
     if (updatedActivities.length % 3 === 0) {
       try {
         const insight = await getAdaptivePerformanceAnalysis(
@@ -115,7 +115,7 @@ export const useAppEngine = () => {
   const updateAdaptive = useCallback((action: { type: 'msg' | 'upload' | 'import', text?: string, duration?: number }) => {
     setAdaptiveProfile(prev => {
         const updated = GamificationService.updateAdaptiveProfile(prev, action);
-        return { ...updated, activities: prev.activities }; // preserve activities
+        return { ...updated, activities: prev.activities };
     });
   }, []);
 

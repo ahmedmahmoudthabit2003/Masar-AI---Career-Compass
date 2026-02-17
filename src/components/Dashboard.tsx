@@ -19,13 +19,13 @@ const Dashboard: React.FC = () => {
   const insight = adaptive?.performanceInsight;
 
   const mockSkills: SkillProgress[] = [
-    { skill: 'React.js', progress: 85, targetLevel: 'Senior' },
-    { skill: 'Product Strategy', progress: 40, targetLevel: 'Lead' },
-    { skill: 'System Design', progress: 60, targetLevel: 'Expert' }
+    { skill: 'تحليل البيانات', progress: 85, targetLevel: 'Senior' },
+    { skill: 'استراتيجيات المنتج', progress: 40, targetLevel: 'Lead' },
+    { skill: 'بناء الأنظمة', progress: 60, targetLevel: 'Expert' }
   ];
 
   const readinessScore = useMemo(() => {
-    if (appliedJobs.length === 0) return insight?.predictedSuccessRate || 75;
+    if (!appliedJobs || appliedJobs.length === 0) return insight?.predictedSuccessRate || 75;
     const scores = appliedJobs.map(j => j.matchScore);
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   }, [appliedJobs, insight]);
@@ -40,14 +40,14 @@ const Dashboard: React.FC = () => {
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-fade-in space-y-10 pb-20">
       <div className="flex flex-col lg:flex-row justify-between items-center gap-6 border-b border-slate-100 dark:border-surface-800 pb-8">
          <div className="text-center lg:text-right w-full lg:w-auto">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-white mb-2 tracking-tight">لوحة القيادة الذكية (Adaptive AI) 📊</h2>
-            <p className="text-slate-500 font-medium">مرحباً بك مجدداً. إليك لمحة سريعة عن تطور بروفايلك المهني.</p>
+            <h2 className="text-3xl md:text-5xl font-black text-slate-800 dark:text-white mb-2 tracking-tight">قمرة القيادة الذكية (Adaptive AI) 📊</h2>
+            <p className="text-slate-500 font-medium">مرحباً بك مجدداً. إليك لمحة سريعة عن تطور ملفك المهني.</p>
          </div>
          <div className="flex gap-4">
             <div className="bg-primary-50 dark:bg-primary-900/20 px-6 py-3 rounded-2xl border border-primary-100 dark:border-primary-800 flex items-center gap-3">
                <span className="text-2xl">🏆</span>
                <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-400 uppercase">النقاط المهنية</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase">نقاط المسار</p>
                   <p className="text-xl font-black text-primary-600">{careerPoints}</p>
                </div>
             </div>
@@ -75,14 +75,14 @@ const Dashboard: React.FC = () => {
                      <div className="flex items-center justify-between">
                         <div className="text-3xl">{trendIcon(insight.trend)}</div>
                         <div className="text-right">
-                           <p className="text-[10px] font-black text-slate-400 uppercase">Probability of Landing Offer</p>
+                           <p className="text-[10px] font-black text-slate-400 uppercase">Success Probability</p>
                            <p className="text-4xl font-black text-emerald-400">{insight.predictedSuccessRate}%</p>
                         </div>
                      </div>
                      <p className="text-sm text-slate-300 font-bold leading-relaxed">{insight.message}</p>
                      <div className="pt-4 border-t border-slate-800 grid grid-cols-2 gap-4">
                         <div>
-                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">المستوى المقترح</span>
+                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">تعديل المستوى</span>
                            <p className="text-xs font-black text-primary-400 mt-1 uppercase">{insight.suggestedLevelAdjustment}</p>
                         </div>
                         <div className="text-right">
@@ -94,7 +94,7 @@ const Dashboard: React.FC = () => {
                </Card>
             )}
 
-            <Card title="أهداف المهارات الحالية" className="border-none shadow-xl">
+            <Card title="أهداف المهارات الحالية 🌳" className="border-none shadow-xl">
                <div className="space-y-6 mt-4">
                   {mockSkills.map((s, i) => (
                     <div key={i} className="space-y-2">
@@ -158,7 +158,6 @@ const Dashboard: React.FC = () => {
                </div>
             </Card>
 
-            {/* Adaptive Re-orderable suggestions or actions */}
             <div className="grid md:grid-cols-2 gap-6">
                <Card className="bg-emerald-50/30 dark:bg-emerald-900/10 border-none shadow-lg p-6">
                   <div className="flex items-center gap-3 mb-4">
@@ -176,7 +175,7 @@ const Dashboard: React.FC = () => {
                      <h4 className="font-black text-amber-800 dark:text-amber-400">تنبيه المقابلات</h4>
                   </div>
                   <p className="text-sm font-bold text-amber-900 dark:text-amber-300 leading-relaxed">
-                     لديك مقابلة غداً! هل تريد إجراء محاكاة سريعة مع "المدير التقني" للتدريب على أسئلة System Design؟
+                     لديك مقابلة غداً! هل تريد إجراء محاكاة سريعة للتدريب على أسئلة System Design؟
                   </p>
                   <Button variant="outline" className="mt-4 text-xs h-10 border-amber-200 text-amber-700">بدء تدريب ذكي</Button>
                </Card>
